@@ -2,14 +2,8 @@ const API_URL =
     "https://ai-bot-v0-1.onrender.com/message";
 
 
-let connected = false;
-let convId = null;
-
-
-
-export function isConnected() {
-    return connected;
-}
+let convId =
+    null;
 
 
 
@@ -18,8 +12,6 @@ export function connect() {
     convId =
         crypto.randomUUID();
 
-    connected = true;
-
     return true;
 }
 
@@ -27,23 +19,26 @@ export function connect() {
 
 export function disconnect() {
 
-    connected = false;
-    convId = null;
+    convId =
+        null;
+}
+
+
+
+export function isConnected() {
+
+    return convId !== null;
 }
 
 
 
 export async function sendToAgent(message) {
 
-    if (!connected) {
-        throw new Error("Not connected");
+    if (!convId) {
+        throw new Error(
+            "No conversation"
+        );
     }
-
-
-    console.log(
-        "Sending to:",
-        API_URL
-    );
 
 
     const response =
@@ -63,8 +58,17 @@ export async function sendToAgent(message) {
         });
 
 
+    if (!response.ok) {
+
+        throw new Error(
+            "Network error"
+        );
+    }
+
+
     const data =
         await response.json();
+
 
     return data;
 }

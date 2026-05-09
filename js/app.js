@@ -20,6 +20,7 @@ const messages =
     document.getElementById("messages");
 
 
+
 function addMessage(type, text) {
 
     const div =
@@ -36,6 +37,7 @@ function addMessage(type, text) {
     messages.scrollTop =
         messages.scrollHeight;
 }
+
 
 
 function updateUI() {
@@ -62,7 +64,7 @@ function updateUI() {
 
 
 
-async function handleConnectClick() {
+function handleConnectClick() {
 
     if (isConnected()) {
 
@@ -83,7 +85,6 @@ async function handleConnectClick() {
         );
     }
 
-
     updateUI();
 }
 
@@ -94,9 +95,9 @@ async function handleSend() {
     const text =
         messageInput.value.trim();
 
-    if (!text) {
-        return;
-    }
+    if (!text) return;
+
+    if (!isConnected()) return;
 
 
     addMessage(
@@ -127,11 +128,11 @@ async function handleSend() {
             );
         }
 
-    } catch {
+    } catch (err) {
 
         addMessage(
             "bot",
-            "Send error"
+            "❌ Send error"
         );
     }
 }
@@ -151,10 +152,11 @@ sendBtn.addEventListener(
 
 
 messageInput.addEventListener(
-    "keypress",
-    e => {
+    "keydown",
+    (e) => {
 
         if (e.key === "Enter") {
+
             handleSend();
         }
     }
