@@ -1,0 +1,196 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+
+body {
+    background: #111827;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+
+.chat-container {
+    width: 500px;
+    height: 700px;
+    background: #1f2937;
+    border-radius: 16px;
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.4);
+}
+
+
+/* header */
+
+.header {
+    background: #374151;
+
+    padding: 16px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+.header h2 {
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+
+/* connect button */
+
+#connectBtn {
+    border: none;
+    outline: none;
+
+    padding: 10px 16px;
+
+    border-radius: 8px;
+
+    color: white;
+
+    cursor: pointer;
+
+    background: #2563eb;
+
+    transition: 0.2s;
+}
+
+
+#connectBtn:hover {
+    transform: scale(1.03);
+}
+
+
+#connectBtn.connected {
+    background: #dc2626;
+}
+
+
+/* chat */
+
+.messages {
+    flex: 1;
+
+    padding: 20px;
+
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+
+.message {
+    max-width: 80%;
+
+    padding: 12px;
+
+    border-radius: 12px;
+
+    color: white;
+
+    line-height: 1.4;
+
+    word-break: break-word;
+}
+
+
+/* user */
+
+.message.user {
+    align-self: flex-end;
+
+    background: #2563eb;
+}
+
+
+/* bot */
+
+.message.bot {
+    align-self: flex-start;
+
+    background: #374151;
+}
+
+
+/* input */
+
+.input-area {
+    background: #374151;
+
+    padding: 16px;
+
+    display: flex;
+    gap: 10px;
+}
+
+
+#messageInput {
+    flex: 1;
+
+    border: none;
+    outline: none;
+
+    border-radius: 8px;
+
+    padding: 12px;
+}
+
+
+#sendBtn {
+    border: none;
+
+    padding: 12px 20px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    color: white;
+
+    background: #10b981;
+
+    transition: 0.2s;
+}
+
+
+#sendBtn:hover:not(:disabled) {
+    transform: scale(1.03);
+}
+
+
+/* disabled */
+
+button:disabled,
+input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* scrollbar */
+
+.messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+
+.messages::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 8px;
+}
