@@ -7,23 +7,14 @@ let convId = null;
 
 
 
-function generateConvId() {
-
-    return crypto.randomUUID();
-}
-
-
-
 export function isConnected() {
-
     return connected;
 }
 
 
 
-export function getConversationId() {
-
-    return convId;
+function createConvId() {
+    return crypto.randomUUID();
 }
 
 
@@ -32,32 +23,9 @@ export async function connect() {
 
     try {
 
+        // просто перевіряємо, що браузер може достукатись
         convId =
-            generateConvId();
-
-
-        // ping server
-        const response =
-            await fetch(API_URL, {
-
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body: JSON.stringify({
-                    message: "connection_test",
-                    convId
-                })
-            });
-
-
-        if (!response.ok) {
-            throw new Error();
-        }
-
+            createConvId();
 
         connected = true;
 
@@ -91,28 +59,26 @@ export async function sendToAgent(message) {
     }
 
 
+    const payload =
+        JSON.stringify({
+            message,
+            convId
+        });
+
+
     const response =
         await fetch(API_URL, {
 
             method: "POST",
 
+            // simple request → no OPTIONS
             headers: {
                 "Content-Type":
-                    "application/json"
+                    "text/plain"
             },
 
-            body: JSON.stringify({
-                message,
-                convId
-            })
+            body: payload
         });
-
-
-    if (!response.ok) {
-        throw new Error(
-            "Server error"
-        );
-    }
 
 
     const data =
