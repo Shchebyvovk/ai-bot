@@ -100,6 +100,7 @@ async function handleSend() {
         return;
     }
 
+
     addMessage(
         "user",
         text
@@ -107,15 +108,26 @@ async function handleSend() {
 
     messageInput.value = "";
 
+
     try {
 
-        const reply =
+        const result =
             await sendToAgent(text);
+
 
         addMessage(
             "bot",
-            reply
+            result.reply
         );
+
+
+        if (result.handoff) {
+
+            addMessage(
+                "bot",
+                "⚠ Потрібна участь людини"
+            );
+        }
 
     } catch {
 
