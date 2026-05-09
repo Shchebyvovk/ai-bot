@@ -13,31 +13,14 @@ export function isConnected() {
 
 
 
-function createConvId() {
-    return crypto.randomUUID();
-}
+export function connect() {
 
+    convId =
+        crypto.randomUUID();
 
+    connected = true;
 
-export async function connect() {
-
-    try {
-
-        // просто перевіряємо, що браузер може достукатись
-        convId =
-            createConvId();
-
-        connected = true;
-
-        return true;
-
-    } catch {
-
-        connected = false;
-        convId = null;
-
-        return false;
-    }
+    return true;
 }
 
 
@@ -59,34 +42,33 @@ export async function sendToAgent(message) {
     }
 
 
-    const payload =
-        JSON.stringify({
-            message,
-            convId
-        });
-
-
     const response =
         await fetch(API_URL, {
 
             method: "POST",
 
-            // simple request → no OPTIONS
             headers: {
                 "Content-Type":
-                    "text/plain"
+                    "application/json"
             },
 
-            body: payload
+            body: JSON.stringify({
+                message,
+                convId
+            })
         });
+
+
+    if (!response.ok) {
+        throw new Error(
+            "Server error"
+        );
+    }
 
 
     const data =
         await response.json();
 
 
-    return {
-        reply: data.reply,
-        handoff: data.handoff
-    };
+    return data;
 }

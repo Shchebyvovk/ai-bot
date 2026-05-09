@@ -75,16 +75,14 @@ async function handleConnectClick() {
 
     } else {
 
-        const success =
-            await connect();
+        connect();
 
         addMessage(
             "bot",
-            success
-                ? "Connected"
-                : "Connection failed"
+            "Connected"
         );
     }
+
 
     updateUI();
 }
