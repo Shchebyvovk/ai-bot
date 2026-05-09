@@ -36,10 +36,14 @@ export function disconnect() {
 export async function sendToAgent(message) {
 
     if (!connected) {
-        throw new Error(
-            "Not connected"
-        );
+        throw new Error("Not connected");
     }
+
+
+    console.log(
+        "Sending to:",
+        API_URL
+    );
 
 
     const response =
@@ -59,16 +63,8 @@ export async function sendToAgent(message) {
         });
 
 
-    if (!response.ok) {
-        throw new Error(
-            "Server error"
-        );
-    }
-
-
     const data =
         await response.json();
-
 
     return data;
 }
