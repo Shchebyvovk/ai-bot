@@ -28,7 +28,10 @@ function shouldEscalate(message, reply) {
     const strictTriggers = [
         "refund",
         "legal",
-        "chargeback"
+        "chargeback",
+        "human agent",
+        "transfer to human",
+        
     ];
 
     if (strictTriggers.some(t => text.includes(t))) {
