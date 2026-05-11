@@ -9,13 +9,45 @@ const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-// 🔥 In-memory conversation memory
+// 🔥 Knowledge base
+const KNOWLEDGE = require('./knowledge');
+
+// 🔥 Conversation memory
 const sessions = {};
 
 // 🔥 System prompt
-const KNOWLEDGE = require('./knowledge');
+const SYSTEM_PROMPT = `
+You are a technical support assistant for Live Assist for Dynamics 365.
 
-// 🔥 AI-based escalation detection
+Your job is to help users troubleshoot:
+- Live Assist installation
+- Dynamics 365 integration
+- Omnichannel setup
+- Chat widget behavior
+- Agent routing
+- Authentication issues
+- Live Assist configuration
+- Common deployment issues
+
+Guidelines:
+- Give direct and practical answers
+- Focus on Live Assist behavior first
+- Prefer troubleshooting steps over theory
+- Ask follow-up questions only if necessary
+- Keep answers concise and technical
+- Do not provide generic AI advice
+- Do not invent settings or features
+- If unsure, say what should be verified
+
+When troubleshooting:
+1. Explain the most likely cause
+2. Explain how to verify it
+3. Suggest the fix
+
+Keep responses short unless user asks for details.
+`;
+
+// 🔥 Escalation detection
 async function detectEscalation(message) {
 
     try {
@@ -29,8 +61,6 @@ async function detectEscalation(message) {
                     content: `
 You are an escalation detection system.
 
-Analyze the user message.
-
 Return ONLY valid JSON:
 
 {
@@ -38,14 +68,12 @@ Return ONLY valid JSON:
   "reason": "short reason"
 }
 
-Escalate if:
-- user asks for human/agent
-- refund/billing/payment issue
-- legal/compliance issue
-- user is angry/frustrated
-- backend access required
-- high-risk request
-- repeated failed troubleshooting
+Escalate ONLY if:
+- user explicitly asks for human
+- refund/billing issue
+- legal issue
+- user extremely frustrated
+- manual backend intervention required
 `
                 },
                 {
@@ -55,11 +83,9 @@ Escalate if:
             ]
         });
 
-        const result = JSON.parse(
+        return JSON.parse(
             escalationCheck.choices[0].message.content
         );
-
-        return result;
 
     } catch (err) {
 
@@ -72,7 +98,7 @@ Escalate if:
     }
 }
 
-// 🔥 Welcome message
+// 🔥 Welcome detection
 function isWelcomeMessage(message) {
 
     if (!message) return true;
@@ -102,26 +128,61 @@ app.post('/message', async (req, res) => {
 
             return res.json({
                 reply:
-                    "Hello! I’m your AI support assistant for Live Assist and LivePerson integrations. I’ve been trained on Live Assist and LivePerson documentation and I’m ready to help with technical support questions.",
+                    "Hello! I’m your AI assistant for Live Assist for Dynamics 365. I can help troubleshoot configuration issues, routing problems, widget behavior, integrations, and other technical questions.",
                 handoff: false
             });
         }
 
         // 🔥 Create session
         if (!sessions[convId]) {
-            sessions[convId] = [];
+
+            sessions[convId] = {
+                messages: [],
+                pendingTransfer: false
+            };
+        }
+
+        // 🔥 Transfer confirmation flow
+        const lower = message.toLowerCase();
+
+        if (
+            sessions[convId].pendingTransfer &&
+            (
+                lower.includes("yes") ||
+                lower.includes("human") ||
+                lower.includes("agent") ||
+                lower.includes("transfer")
+            )
+        ) {
+
+            return res.json({
+                reply: "Connecting you to a human agent...",
+                handoff: true
+            });
         }
 
         // 🔥 Store user message
-        sessions[convId].push({
+        sessions[convId].messages.push({
             role: "user",
             content: message
         });
 
-        // 🔥 Detect escalation
+        // 🔥 Escalation analysis
         const escalation = await detectEscalation(message);
 
         console.info("Escalation result:", escalation);
+
+        // 🔥 Soft escalation
+        if (escalation.handoff) {
+
+            sessions[convId].pendingTransfer = true;
+
+            return res.json({
+                reply:
+                    "I may need additional clarification to help properly. You can provide more details, rephrase the issue, or ask me to connect you to a human agent.",
+                handoff: false
+            });
+        }
 
         // 🔥 GPT response
         const completion = await client.chat.completions.create({
@@ -131,7 +192,7 @@ app.post('/message', async (req, res) => {
                     role: "system",
                     content: SYSTEM_PROMPT + "\n\n" + KNOWLEDGE
                 },
-                ...sessions[convId]
+                ...sessions[convId].messages
             ]
         });
 
@@ -139,16 +200,18 @@ app.post('/message', async (req, res) => {
             completion.choices[0].message.content;
 
         // 🔥 Store AI reply
-        sessions[convId].push({
+        sessions[convId].messages.push({
             role: "assistant",
             content: reply
         });
 
-        // 🔥 Send response
+        // 🔥 Reset transfer state after successful answer
+        sessions[convId].pendingTransfer = false;
+
+        // 🔥 Final response
         res.json({
             reply,
-            handoff: escalation.handoff,
-            reason: escalation.reason
+            handoff: false
         });
 
     } catch (err) {
@@ -157,9 +220,8 @@ app.post('/message', async (req, res) => {
 
         res.json({
             reply:
-                "I encountered a temporary issue. Let me connect you to a human agent.",
-            handoff: true,
-            reason: "server_error"
+                "I ran into a temporary issue. You can try rephrasing your question or ask me to connect you to a human agent.",
+            handoff: false
         });
     }
 });
