@@ -138,8 +138,7 @@ app.post('/message', async (req, res) => {
 
             sessions[convId] = {
                 messages: [],
-                pendingTransfer: false,
-                failedAttempts: 0
+                pendingTransfer: false
             };
         }
 
@@ -176,23 +175,6 @@ app.post('/message', async (req, res) => {
         // 🔥 Soft escalation
         if (escalation.handoff) {
 
-            sessions[convId].failedAttempts += 1;
-
-            console.info(
-                "Failed attempts:",
-                sessions[convId].failedAttempts
-            );
-
-            // 🔥 HARD TRANSFER AFTER 3 FAILS
-            if (sessions[convId].failedAttempts >= 3) {
-
-                return res.json({
-                    reply:
-                        "It looks like I won't be able to resolve this without additional help. Connecting you to a human agent now.",
-                    handoff: true
-                });
-            }
-
             sessions[convId].pendingTransfer = true;
 
             return res.json({
@@ -223,9 +205,8 @@ app.post('/message', async (req, res) => {
             content: reply
         });
 
-        // 🔥 Reset escalation state after successful answer
+        // 🔥 Reset transfer state after successful answer
         sessions[convId].pendingTransfer = false;
-        sessions[convId].failedAttempts = 0;
 
         // 🔥 Final response
         res.json({
