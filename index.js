@@ -3,13 +3,16 @@ const app = express();
 
 app.use(express.json());
 
+const fs = require('fs');
+const path = require('path');
+
 const { OpenAI } = require('openai');
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-// 🔥 Knowledge base
+// 🔥 Static knowledge
 const KNOWLEDGE = require('./knowledge');
 
 // 🔥 Conversation memory
@@ -39,6 +42,12 @@ Guidelines:
 - Do not invent settings or features
 - If unsure, say what should be verified
 
+Knowledge priorities:
+1. Customer-specific history
+2. Previous solved customer cases
+3. Internal KB articles
+4. Internal notes/discussions
+
 When troubleshooting:
 1. Explain the most likely cause
 2. Explain how to verify it
@@ -47,18 +56,108 @@ When troubleshooting:
 Keep responses short unless user asks for details.
 `;
 
+// 🔥 Load JSON files from folder
+function loadFiles(dir) {
+
+    const fullPath = path.join(__dirname, dir);
+
+    if (!fs.existsSync(fullPath)) {
+        return [];
+    }
+
+    const files = fs.readdirSync(fullPath);
+
+    return files
+        .filter(file => file.endsWith('.json'))
+        .map(file => {
+
+            try {
+
+                const content = fs.readFileSync(
+                    path.join(fullPath, file),
+                    'utf8'
+                );
+
+                return JSON.parse(content);
+
+            } catch (err) {
+
+                console.error("Failed loading file:", file);
+
+                return null;
+            }
+        })
+        .filter(Boolean);
+}
+
+// 🔥 Simple keyword scoring
+function scoreEntry(entry, question) {
+
+    const text =
+        JSON.stringify(entry).toLowerCase();
+
+    const words =
+        question.toLowerCase().split(' ');
+
+    let score = 0;
+
+    words.forEach(word => {
+
+        if (
+            word.length > 2 &&
+            text.includes(word)
+        ) {
+            score += 1;
+        }
+    });
+
+    return score;
+}
+
+// 🔥 Knowledge retrieval
+function retrieveRelevantKnowledge(question) {
+
+    const sources = [
+
+        // 🔥 Internal KB
+        ...loadFiles('knowledge/kb'),
+
+        // 🔥 Previous customer cases
+        ...loadFiles('knowledge/customer_cases'),
+
+        // 🔥 Internal engineering notes
+        ...loadFiles('knowledge/internal_notes')
+    ];
+
+    const ranked = sources
+        .map(entry => ({
+            entry,
+            score: scoreEntry(entry, question)
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+    return ranked
+        .filter(r => r.score > 0)
+        .map(r => JSON.stringify(r.entry))
+        .join('\n\n');
+}
+
 // 🔥 Escalation detection
 async function detectEscalation(message) {
 
     try {
 
-        const escalationCheck = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [
-                {
-                    role: "system",
-                    content: `
+        const escalationCheck =
+            await client.chat.completions.create({
+                model: "gpt-4o-mini",
+                response_format: {
+                    type: "json_object"
+                },
+                messages: [
+                    {
+                        role: "system",
+                        content: `
 You are an escalation detection system.
 
 Return ONLY valid JSON:
@@ -75,21 +174,27 @@ Escalate ONLY if:
 - user extremely frustrated
 - manual backend intervention required
 `
-                },
-                {
-                    role: "user",
-                    content: message
-                }
-            ]
-        });
+                    },
+                    {
+                        role: "user",
+                        content: message
+                    }
+                ]
+            });
 
         return JSON.parse(
-            escalationCheck.choices[0].message.content
+            escalationCheck
+                .choices[0]
+                .message
+                .content
         );
 
     } catch (err) {
 
-        console.error("Escalation detection failed:", err);
+        console.error(
+            "Escalation detection failed:",
+            err
+        );
 
         return {
             handoff: false,
@@ -103,7 +208,8 @@ function isWelcomeMessage(message) {
 
     if (!message) return true;
 
-    const text = message.toLowerCase().trim();
+    const text =
+        message.toLowerCase().trim();
 
     return (
         text === "hi" ||
@@ -120,8 +226,15 @@ app.post('/message', async (req, res) => {
 
         const { message, convId } = req.body;
 
-        console.info("Incoming message:", message);
-        console.info("Conversation ID:", convId);
+        console.info(
+            "Incoming message:",
+            message
+        );
+
+        console.info(
+            "Conversation ID:",
+            convId
+        );
 
         // 🔥 Welcome flow
         if (isWelcomeMessage(message)) {
@@ -143,8 +256,9 @@ app.post('/message', async (req, res) => {
             };
         }
 
-        // 🔥 Transfer confirmation flow
-        const lower = message.toLowerCase();
+        // 🔥 Transfer confirmation
+        const lower =
+            message.toLowerCase();
 
         if (
             sessions[convId].pendingTransfer &&
@@ -157,7 +271,8 @@ app.post('/message', async (req, res) => {
         ) {
 
             return res.json({
-                reply: "Connecting you to a human agent...",
+                reply:
+                    "Connecting you to a human agent...",
                 handoff: true
             });
         }
@@ -169,22 +284,31 @@ app.post('/message', async (req, res) => {
         });
 
         // 🔥 Escalation analysis
-        const escalation = await detectEscalation(message);
+        const escalation =
+            await detectEscalation(message);
 
-        console.info("Escalation result:", escalation);
+        console.info(
+            "Escalation result:",
+            escalation
+        );
 
         // 🔥 Soft escalation
         if (escalation.handoff) {
 
-            sessions[convId].failedAttempts += 1;
+            sessions[convId]
+                .failedAttempts += 1;
 
             console.info(
                 "Failed attempts:",
-                sessions[convId].failedAttempts
+                sessions[convId]
+                    .failedAttempts
             );
 
-            // 🔥 HARD TRANSFER AFTER 3 FAILS
-            if (sessions[convId].failedAttempts >= 3) {
+            // 🔥 Hard transfer
+            if (
+                sessions[convId]
+                    .failedAttempts >= 3
+            ) {
 
                 return res.json({
                     reply:
@@ -193,7 +317,8 @@ app.post('/message', async (req, res) => {
                 });
             }
 
-            sessions[convId].pendingTransfer = true;
+            sessions[convId]
+                .pendingTransfer = true;
 
             return res.json({
                 reply:
@@ -202,20 +327,38 @@ app.post('/message', async (req, res) => {
             });
         }
 
+        // 🔥 Retrieve relevant knowledge
+        const relevantKnowledge =
+            retrieveRelevantKnowledge(message);
+
+        console.info(
+            "Relevant knowledge:",
+            relevantKnowledge
+        );
+
         // 🔥 GPT response
-        const completion = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                {
-                    role: "system",
-                    content: SYSTEM_PROMPT + "\n\n" + KNOWLEDGE
-                },
-                ...sessions[convId].messages
-            ]
-        });
+        const completion =
+            await client.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            SYSTEM_PROMPT +
+                            "\n\n" +
+                            KNOWLEDGE +
+                            "\n\nRelevant knowledge:\n" +
+                            relevantKnowledge
+                    },
+                    ...sessions[convId].messages
+                ]
+            });
 
         const reply =
-            completion.choices[0].message.content;
+            completion
+                .choices[0]
+                .message
+                .content;
 
         // 🔥 Store AI reply
         sessions[convId].messages.push({
@@ -223,9 +366,12 @@ app.post('/message', async (req, res) => {
             content: reply
         });
 
-        // 🔥 Reset escalation state after successful answer
-        sessions[convId].pendingTransfer = false;
-        sessions[convId].failedAttempts = 0;
+        // 🔥 Reset escalation state
+        sessions[convId]
+            .pendingTransfer = false;
+
+        sessions[convId]
+            .failedAttempts = 0;
 
         // 🔥 Final response
         res.json({
@@ -235,7 +381,10 @@ app.post('/message', async (req, res) => {
 
     } catch (err) {
 
-        console.error("AI SERVER ERROR:", err);
+        console.error(
+            "AI SERVER ERROR:",
+            err
+        );
 
         res.json({
             reply:
@@ -245,8 +394,13 @@ app.post('/message', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log("AI support agent running on port", PORT);
+
+    console.log(
+        "AI support agent running on port",
+        PORT
+    );
 });
