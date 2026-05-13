@@ -1,0 +1,54 @@
+{
+  "title": "Enabling Agents and Supervisors",
+  "category": "user-management",
+  "product": "Live Assist for Dynamics 365",
+  "tags": [
+    "agents",
+    "supervisors",
+    "roles",
+    "permissions",
+    "admin portal",
+    "dynamics",
+    "csr",
+    "channel access"
+  ],
+  "content": [
+    {
+      "topic": "Required Dynamics roles",
+      "details": [
+        "Agents must exist as Dynamics 365 users",
+        "Agents require a Dynamics product license",
+        "Required roles include Channel Access",
+        "Required roles include Customer Service Representative",
+        "Required roles include Customer Service app access"
+      ]
+    },
+    {
+      "topic": "Enabling agents",
+      "details": [
+        "Open the Live Assist Admin Portal",
+        "Go to Users > Agents",
+        "Locate the user",
+        "Enable the agent using the yellow toggle"
+      ]
+    },
+    {
+      "topic": "Supervisor permissions",
+      "details": [
+        "Supervisors can be enabled from the same user card",
+        "Supervisor access is controlled in the Admin Portal",
+        "Supervisor role provides Engagement Portal visibility"
+      ]
+    },
+    {
+      "topic": "Important warnings",
+      "details": [
+        "Do not manually assign Live Assist managed roles in Dynamics",
+        "Live Assist roles should only be managed from the Admin Portal",
+        "Manual role modification may break integrations"
+      ]
+    }
+  ],
+  "source": "internal_kb",
+  "priority": 3
+}
